@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: cloud-shell-task
+server:
+  port: 7172
+  servlet:
+    context-path: /cloud-shell-task
+
+system:
+  id: "${REALM:cloud-shell-task}"
+  virtual-url: "${VIRTUAL_URL: your virtual config url here}"
+  config-url: "${CONFIG_URL: your url to load firebase config}"
+  profile-table-url: "${PROFILE_TABLE_URL: your url to save profile after login success}"
