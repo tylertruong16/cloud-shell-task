@@ -7,7 +7,6 @@ server:
     context-path: /cloud-shell-task
 
 system:
-  id: "${REALM:cloud-shell-task}"
-  virtual-url: "${VIRTUAL_URL: your virtual config url here}"
-  profile-table-url: "${PROFILE_TABLE_URL: your url to save profile after login success}"
+  id: "${REALM:browser-task}"
+  profile-table-url: "${PROFILE_TABLE_URL:https://api.moonpet.vn/public/api/dynamic/table/profile_manager}"
   cmd: "${CMD:whoami}"

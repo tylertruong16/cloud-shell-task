@@ -33,10 +33,20 @@ public class ChromeService {
     private String cmd;
 
 
+    public String formatDockerCmd(String command, String email) {
+        var isDockerCmd = StringUtils.contains(command, "docker run");
+        if (isDockerCmd) {
+            return MessageFormat.format(command, email);
+        }
+        return command;
+    }
+
+
     public void connectGoogle(String email) {
         var options = createProfile(email, new ChromeOptions());
         var driver = new ChromeDriver(options);
-        var cmdValue = MessageFormat.format("{0}\n", StringUtils.defaultIfBlank(cmd, "").trim());
+        var formatCommand = formatDockerCmd(cmd, email);
+        var cmdValue = MessageFormat.format("{0}\n", StringUtils.defaultIfBlank(formatCommand, "").trim());
         try {
             driver.get(GOOGLE_ACCOUNT_PAGE);
             Thread.sleep(Duration.ofSeconds(5));
@@ -61,7 +71,7 @@ public class ChromeService {
                     handleAuthorizeShell(driver);
 
                 }
-                Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+                Thread.sleep(TimeUnit.SECONDS.toMillis(10));
 
             }
         } catch (Exception e) {
@@ -105,13 +115,13 @@ public class ChromeService {
                 .pollingEvery(Duration.ofMillis(500))
                 .ignoring(NoSuchElementException.class);
         var dialog = wait.until(driver1 -> {
-            WebElement element = driver1.findElement(By.cssSelector("mat-dialog-container"));
+            var element = driver1.findElement(By.cssSelector("mat-dialog-container"));
             if (element.isDisplayed()) {
                 return element;
             }
             return null;
         });
-        var termsLink = dialog.findElement(By.cssSelector("[article='GCP_TERMS_OF_SERVICE']"));
+        WebElement termsLink = dialog.findElement(By.cssSelector("[article='GCP_TERMS_OF_SERVICE']"));
         var popupDisplay = Optional.ofNullable(termsLink).isPresent();
         if (popupDisplay) {
             var textInsidePopUp = dialog.getText();
@@ -165,7 +175,6 @@ public class ChromeService {
                 .pollingEvery(Duration.ofSeconds(5))
                 .ignoring(NoSuchElementException.class);
 
-
         // Define the condition to check for the profile icon
         var checkLogin = new Function<WebDriver, Boolean>() {
             public Boolean apply(WebDriver driver) {
@@ -189,6 +198,12 @@ public class ChromeService {
             options.setExperimentalOption("excludeSwitches", new String[]{"enable-automation"});
             options.setExperimentalOption("useAutomationExtension", false);
             options.addArguments("--disable-blink-features=AutomationControlled");
+
+
+            //           used headless mode if needed
+//            options.addArguments("--headless");
+//            options.addArguments("--disable-gpu");
+
 
             return options;
         } catch (Exception e) {
