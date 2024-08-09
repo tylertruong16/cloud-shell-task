@@ -10,3 +10,4 @@ system:
   id: "${REALM:browser-task}"
   profile-table-url: "${PROFILE_TABLE_URL:link connect to profile_manager table}"
   cmd: "${CMD:whoami}"
+  headless-mode: "${HEADLESS_MODE:false}"

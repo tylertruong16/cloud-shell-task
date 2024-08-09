@@ -31,6 +31,8 @@ public class ChromeService {
     private static final String SHELL_FRAME_NAME = "cloudshell-frame";
     @Value("${system.cmd}")
     private String cmd;
+    @Value("${system.headless-mode}")
+    private String headlessMode;
 
 
     public String formatDockerCmd(String command, String email) {
@@ -114,22 +116,32 @@ public class ChromeService {
                 .withTimeout(Duration.ofSeconds(10))
                 .pollingEvery(Duration.ofMillis(500))
                 .ignoring(NoSuchElementException.class);
-        var dialog = wait.until(driver1 -> {
-            var element = driver1.findElement(By.cssSelector("mat-dialog-container"));
-            if (element.isDisplayed()) {
-                return element;
+        var dialogCondition = new Function<WebDriver, Boolean>() {
+            public Boolean apply(WebDriver driver) {
+                try {
+                    var element = driver.findElement(By.cssSelector("mat-dialog-container"));
+                    return element.isDisplayed();
+                } catch (NoSuchElementException e) {
+                    return false; // Profile icon not found, not signed in
+                }
             }
-            return null;
-        });
-        WebElement termsLink = dialog.findElement(By.cssSelector("[article='GCP_TERMS_OF_SERVICE']"));
-        var popupDisplay = Optional.ofNullable(termsLink).isPresent();
-        if (popupDisplay) {
-            var textInsidePopUp = dialog.getText();
-            log.log(Level.INFO, "cloud-shell-task >> ChromeService >> isDisplayTermPopUp >> textInsidePopUp: {0}", textInsidePopUp);
-            confirmPopUp(driver);
+        };
+        var dialogDisplay = wait.until(dialogCondition);
+        if (dialogDisplay) {
+            var dialog = driver.findElement(By.cssSelector("mat-dialog-container"));
+            WebElement termsLink = dialog.findElement(By.cssSelector("[article='GCP_TERMS_OF_SERVICE']"));
+            var popupDisplay = Optional.ofNullable(termsLink).isPresent();
+            if (popupDisplay) {
+                var textInsidePopUp = dialog.getText();
+                log.log(Level.INFO, "cloud-shell-task >> ChromeService >> isDisplayTermPopUp >> textInsidePopUp: {0}", textInsidePopUp);
+                confirmPopUp(driver);
 
+            }
+            return popupDisplay;
         }
-        return popupDisplay;
+
+        return false;
+
     }
 
     public void handleAuthorizeShell(WebDriver driver) {
@@ -198,13 +210,10 @@ public class ChromeService {
             options.setExperimentalOption("excludeSwitches", new String[]{"enable-automation"});
             options.setExperimentalOption("useAutomationExtension", false);
             options.addArguments("--disable-blink-features=AutomationControlled");
-
-
-            //           used headless mode if needed
-//            options.addArguments("--headless");
-//            options.addArguments("--disable-gpu");
-
-
+            if (StringUtils.equalsIgnoreCase("true", headlessMode)) {
+                options.addArguments("--headless");
+                options.addArguments("--disable-gpu");
+            }
             return options;
         } catch (Exception e) {
             log.log(Level.WARNING, "cloud-shell-task >> ChromeService >> createProfile >> Exception:", e);
