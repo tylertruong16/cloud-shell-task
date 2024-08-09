@@ -8,5 +8,5 @@ server:
 
 system:
   id: "${REALM:browser-task}"
-  profile-table-url: "${PROFILE_TABLE_URL:https://api.moonpet.vn/public/api/dynamic/table/profile_manager}"
+  profile-table-url: "${PROFILE_TABLE_URL:link connect to profile_manager table}"
   cmd: "${CMD:whoami}"
