@@ -1,64 +1,183 @@
 package com.shell.service;
 
-import com.shell.common.HttpUtil;
-import com.shell.common.JsonConverter;
-import com.shell.model.ProfileItem;
 import lombok.extern.java.Log;
+import org.apache.commons.lang3.StringUtils;
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.FluentWait;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Paths;
 import java.text.MessageFormat;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.logging.Level;
-import java.util.regex.Pattern;
 
 @Service
 @Log
 public class ChromeService {
 
-    @Value("${system.id}")
-    private String headerKey;
+    private static final String GOOGLE_ACCOUNT_PAGE = "https://accounts.google.com";
+    private static final String GOOGLE_SHELL_PAGE = "https://console.cloud.google.com";
+    private static final String SHELL_FRAME_NAME = "cloudshell-frame";
+    @Value("${system.cmd}")
+    private String cmd;
 
-    @Value("${system.profile-table-url}")
-    private String profileTableUrl;
 
-    public ChromeService() {
+    public void connectGoogle(String email) {
+        var options = createProfile(email, new ChromeOptions());
+        var driver = new ChromeDriver(options);
+        var cmdValue = MessageFormat.format("{0}\n", StringUtils.defaultIfBlank(cmd, "").trim());
+        try {
+            driver.get(GOOGLE_ACCOUNT_PAGE);
+            Thread.sleep(Duration.ofSeconds(5));
+            var loginSuccess = loginSuccess(driver);
+            if (loginSuccess) {
+                log.log(Level.INFO, "cloud-shell-task >> ChromeService >> connectGoogle >> email: {0} >> title: {1}", new Object[]{email, driver.getTitle()});
+                driver.get(GOOGLE_SHELL_PAGE);
+                var wait = new WebDriverWait(driver, Duration.ofSeconds(30));
+                var cloudShellIcon = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//button[@aria-label='Activate Cloud Shell']")));
+                cloudShellIcon.click();
+                var iframe = driver.findElement(By.className(SHELL_FRAME_NAME));
+                wait.until(ExpectedConditions.visibilityOfElementLocated(By.className(SHELL_FRAME_NAME)));
+                // Switch to the Cloud Shell iframe
+                driver.switchTo().frame(iframe);
+
+
+                log.log(Level.INFO, "cloud-shell-task >> ChromeService >> connectGoogle >> email: {0} >> title: {1}", new Object[]{email, driver.getTitle()});
+                if (isDisplayTermPopUp(driver)) {
+                    // Wait for the shell command prompt to be ready
+                    inputCommandToShell(driver, cmdValue);
+                    // Send a command to the Cloud Shell
+                    handleAuthorizeShell(driver);
+
+                }
+                Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+
+            }
+        } catch (Exception e) {
+            log.log(Level.WARNING, "cloud-shell-task >> ChromeService >> connectGoogle >> Exception:", e);
+        } finally {
+            driver.close();
+        }
+    }
+
+    public void inputCommandToShell(WebDriver driver, String command) {
+        var wait = new FluentWait<>(driver)
+                .withTimeout(Duration.ofMinutes(1))
+                .pollingEvery(Duration.ofSeconds(5))
+                .ignoring(NoSuchElementException.class);
+        var shellSelector = ".terminal .xterm-helper-textarea";
+
+        var isShellDisplayCondition = new Function<WebDriver, Boolean>() {
+            public Boolean apply(WebDriver driver) {
+                try {
+                    WebElement element = driver.findElement(By.cssSelector(shellSelector));
+                    String accessibleName = element.getAccessibleName(); // or element.getText() if you want the visible text
+                    return StringUtils.endsWithIgnoreCase(accessibleName, "Terminal input");
+                } catch (NoSuchElementException e) {
+                    return false; // Profile icon not found, not signed in
+                }
+            }
+        };
+        var shellDisplay = wait.until(isShellDisplayCondition);
+        if (shellDisplay) {
+            var elementShell = driver.findElement(By.cssSelector(shellSelector));
+            var textInsideShell = elementShell.getText();
+            log.log(Level.INFO, "cloud-shell-task >> inputCommandToShell >> textInsideShell: {0}", textInsideShell);
+            elementShell.sendKeys(command); // Example command: listing gcloud configurations
+        }
+
+    }
+
+    public boolean isDisplayTermPopUp(WebDriver driver) {
+        var wait = new FluentWait<>(driver)
+                .withTimeout(Duration.ofSeconds(10))
+                .pollingEvery(Duration.ofMillis(500))
+                .ignoring(NoSuchElementException.class);
+        var dialog = wait.until(driver1 -> {
+            WebElement element = driver1.findElement(By.cssSelector("mat-dialog-container"));
+            if (element.isDisplayed()) {
+                return element;
+            }
+            return null;
+        });
+        var termsLink = dialog.findElement(By.cssSelector("[article='GCP_TERMS_OF_SERVICE']"));
+        var popupDisplay = Optional.ofNullable(termsLink).isPresent();
+        if (popupDisplay) {
+            var textInsidePopUp = dialog.getText();
+            log.log(Level.INFO, "cloud-shell-task >> ChromeService >> isDisplayTermPopUp >> textInsidePopUp: {0}", textInsidePopUp);
+            confirmPopUp(driver);
+
+        }
+        return popupDisplay;
+    }
+
+    public void handleAuthorizeShell(WebDriver driver) {
+        try {
+            var wait = new FluentWait<>(driver)
+                    .withTimeout(Duration.ofMinutes(1))
+                    .pollingEvery(Duration.ofSeconds(5))
+                    .ignoring(NoSuchElementException.class);
+            var checkAuthorizeShell = new Function<WebDriver, Boolean>() {
+                public Boolean apply(WebDriver driver) {
+                    try {
+                        return driver.findElements(By.cssSelector(".mat-mdc-button")).stream().anyMatch(it -> it.getText().equals("Authorize"));
+                    } catch (NoSuchElementException e) {
+                        return false; // Profile icon not found, not signed in
+                    }
+                }
+            };
+            var pupUpShow = wait.until(checkAuthorizeShell);
+            if (pupUpShow) {
+                var popUpText = driver.findElement(By.className("mat-mdc-dialog-content")).getText();
+                log.log(Level.INFO, "cloud-shell-task >> handleAuthorizeShell >> popUpText: {0}", popUpText);
+                // Cloud Shell needs permission to use your credentials for the gcloud CLI command
+                driver.findElements(By.cssSelector(".mat-mdc-button")).stream().filter(it -> it.getText().equals("Authorize")).findFirst().ifPresent(WebElement::click);
+            }
+        } catch (Exception e) {
+            log.log(Level.INFO, "cloud-shell-task >> handleAuthorizeShell >> Exception: {0}", e.getMessage());
+        }
+
+    }
+
+    private static void confirmPopUp(WebDriver driver) {
+        var checkbox = driver.findElement(By.id("mat-mdc-checkbox-1-input"));
+        checkbox.click();
+        // Locate the submit button and click on it
+        var submitButton = driver.findElement(By.xpath("//button[span[contains(text(),'Start Cloud Shell')]]"));
+        submitButton.click();
     }
 
 
-    public void preventCloseTab(ChromeDriver driver) {
-        var script = """
-                    document.addEventListener('keydown', function(event) {
-                        // Prevent opening a new tab with Ctrl+T or Ctrl+N
-                        if ((event.ctrlKey && (event.key === 't' || event.key === 'n')) ||
-                            // Prevent closing the current tab with Ctrl+W or Ctrl+F4
-                            (event.ctrlKey && (event.key === 'w' || event.key === 'F4')) ||
-                            // Prevent opening a new window with Ctrl+N
-                            (event.ctrlKey && event.key === 'N') ||
-                            // Prevent opening a new incognito window with Ctrl+Shift+N
-                            (event.ctrlKey && event.shiftKey && event.key === 'N') ||
-                            // Prevent closing the window with Alt+F4
-                            (event.altKey && event.key === 'F4') ||
-                            // Prevent switching between windows with Alt+Tab
-                            (event.altKey && event.key === 'Tab') ||
-                            // Prevent opening the system menu with F10
-                            (event.key === 'F10') ||
-                            // Prevent opening the context menu with Shift+F10
-                            (event.shiftKey && event.key === 'F10') ||
-                            // Prevent closing or minimizing the window with Ctrl+F4
-                            (event.ctrlKey && event.key === 'F4') ||
-                            // Prevent reopening the most recently closed tab with Ctrl+Shift+T
-                            (event.ctrlKey && event.shiftKey && event.key === 'T')) {
-                            event.preventDefault();
-                        }
-                    });
-                """;
-        var jsExecutor = (JavascriptExecutor) driver;
-        jsExecutor.executeScript(script);
+    private boolean loginSuccess(ChromeDriver driver) {
+        var wait = new FluentWait<WebDriver>(driver)
+                .withTimeout(Duration.ofMinutes(5))
+                .pollingEvery(Duration.ofSeconds(5))
+                .ignoring(NoSuchElementException.class);
+
+
+        // Define the condition to check for the profile icon
+        var checkLogin = new Function<WebDriver, Boolean>() {
+            public Boolean apply(WebDriver driver) {
+                try {
+                    driver.findElement(By.xpath("//a[contains(@href, 'accounts.google.com/SignOutOptions')]"));
+                    return true; // Profile icon found, already signed in
+                } catch (NoSuchElementException e) {
+                    return false; // Profile icon not found, not signed in
+                }
+            }
+        };
+        return wait.until(checkLogin);
     }
 
     public ChromeOptions createProfile(String folderName, ChromeOptions options) {
@@ -76,31 +195,6 @@ public class ChromeService {
             log.log(Level.WARNING, "cloud-shell-task >> ChromeService >> createProfile >> Exception:", e);
         }
         return options;
-    }
-
-
-    public String findEmail(ChromeDriver driver) {
-        var input = driver.findElement(By.xpath("//a[contains(@href, 'accounts.google.com/SignOutOptions')]")).getAttribute("aria-label");
-        var emailPattern = "([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6})";
-        var pattern = Pattern.compile(emailPattern);
-        var matcher = pattern.matcher(input);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        return "";
-    }
-
-
-    void saveProfileDatabase(String email) {
-        var header = HttpUtil.getHeaderPostRequest();
-        header.add("realm", headerKey);
-        var profile = ProfileItem.createOfflineProfile(email);
-        var json = JsonConverter.convertObjectToJson(profile);
-        var response = HttpUtil.sendPostRequest(profileTableUrl, json, header);
-        var body = response.getBody();
-        log.log(Level.INFO, "cloud-shell-task >> saveProfileDatabase >> header: {0} >> json: {1} >> url: {2} >> response: {3}",
-                new Object[]{headerKey, json, profileTableUrl, body});
-
     }
 
 
