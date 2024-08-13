@@ -19,16 +19,17 @@ import java.util.Base64;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ProfileItem implements Serializable {
-    private String id;
-    private String email;
-    private String status;
-    private String updateDate;
+    private String id = "";
+    private String email = "";
+    private String status = "";
+    private String updateDate = "";
+    private String profileFolderUrl = "";
+    private String username = "";
 
-
-    public static ProfileItem createOfflineProfile(String email) {
+    public static ProfileItem createOfflineProfile(String email, String username) {
         var updateAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
         var id = new String(Base64.getEncoder().encode(email.getBytes(StandardCharsets.UTF_8)));
-        return new ProfileItem(id, email, "OFFLINE", updateAt);
+        return new ProfileItem(id, email, "OFFLINE", updateAt, "", username);
     }
 
     public ProfileItem updateLastUpdateTime() {
@@ -36,6 +37,10 @@ public class ProfileItem implements Serializable {
         var updateAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
         clone.setUpdateDate(updateAt);
         return clone;
+    }
+
+    public boolean validDownloadUrl() {
+        return StringUtils.isNoneBlank(this.getProfileFolderUrl());
     }
 
 

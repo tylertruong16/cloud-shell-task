@@ -3,6 +3,7 @@ package com.shell.common;
 import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
 import lombok.extern.java.Log;
+import org.apache.hc.client5.http.HttpResponseException;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
@@ -26,6 +27,8 @@ import org.apache.hc.core5.util.Timeout;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 
+import java.io.BufferedOutputStream;
+import java.io.FileOutputStream;
 import java.security.GeneralSecurityException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
@@ -127,6 +130,31 @@ public class HttpUtil {
         var header = new HttpHeaders();
         getDefaultHeaderValue().forEach(header::add);
         return header;
+    }
+
+    @SneakyThrows
+    public ResponseEntity<String> downloadFile(String outputFilePath, HttpUriRequestBase request, HttpHeaders headers) {
+        try (CloseableHttpClient client = createClient()) {
+            headers.forEach((headerName, headerValue) -> request.setHeader(headerName, headerValue.stream().findFirst().orElse("")));
+            return client.execute(request, response -> {
+                var inputStream = response.getEntity().getContent();
+                try (BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(outputFilePath), 10485760)) {
+                    byte[] buffer = new byte[10485760];
+                    int bytesRead;
+                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                        bufferedOutputStream.write(buffer, 0, bytesRead);
+                    }
+                    EntityUtils.consume(response.getEntity());
+                }
+                if (response.getCode() != 200) {
+                    throw new HttpResponseException(response.getCode(), "Failed to download file");
+                }
+                return ResponseEntity.status(response.getCode()).body("");
+            });
+        } catch (Exception e) {
+            log.log(Level.WARNING, "cloud-shell-task >> HttpUtil >> sendRequest >> url: {0} >> Exception:", e);
+            throw e;
+        }
     }
 
 

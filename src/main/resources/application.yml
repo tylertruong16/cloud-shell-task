@@ -11,3 +11,7 @@ system:
   profile-table-url: "${PROFILE_TABLE_URL:link connect to profile_manager table}"
   cmd: "${CMD:whoami}"
   headless-mode: "${HEADLESS_MODE:false}"
+
+github:
+  api-url: "${GITHUB_API_URL:https://api.github.com/repos/{{owner}}/{{repo_name}}/contents}"
+  token: "${GITHUB_TOKEN: your github token}"
