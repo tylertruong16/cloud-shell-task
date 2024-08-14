@@ -33,7 +33,7 @@ public class SyncProfileJob {
     }
 
 
-    @Scheduled(fixedDelay = 3, timeUnit = TimeUnit.MINUTES)
+    @Scheduled(fixedDelay = 2, timeUnit = TimeUnit.MINUTES)
     void collectProfile() {
         try {
             var config = new GitHubConfig(this.githubApiUrl, this.githubToken.trim());
@@ -47,14 +47,24 @@ public class SyncProfileJob {
                     .stream().filter(ProfileItem::validDownloadUrl)
                     .toList();
             validAccounts.forEach(it -> {
-                var userFolderName = Paths.get(System.getProperty("user.home"), "chrome-profiles-download", it.getEmail()).toString();
-                var userFolder = new File(userFolderName);
-                if (!userFolder.exists() || Optional.ofNullable(userFolder.listFiles()).filter(e -> e.length == 0).isPresent()) {
-                    // download folder when it does not exist
-                    GitHubService.downloadFile(userFolderName, it.getEmail(), config);
-                    var zipFileName = userFolderName + File.separator + MessageFormat.format("{0}.zip", it.getEmail());
-                    FileSplitter.mergeFiles(userFolderName, zipFileName);
+                try {
+                    var userFolderName = Paths.get(System.getProperty("user.home"), "chrome-profiles-download", it.getEmail()).toString();
+                    var userFolder = new File(userFolderName);
+                    if (!userFolder.exists() || Optional.ofNullable(userFolder.listFiles()).filter(e -> e.length == 0).isPresent()) {
+                        // download folder when it does not exist
+                        GitHubService.downloadFile(userFolderName, it.getEmail(), config);
+                        var zipFileName = userFolderName + File.separator + MessageFormat.format("{0}.zip", it.getEmail());
+                        FileSplitter.mergeFiles(userFolderName, zipFileName);
+                        var fileZip = new File(zipFileName);
+                        if (fileZip.exists()) {
+                            var extractFolder = Paths.get(System.getProperty("user.home"), "chrome-profiles-download-extract").toString();
+                            FileSplitter.unzip(zipFileName, extractFolder);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.log(Level.INFO, MessageFormat.format("cloud-shell-task >> collectProfile >> email: {0} >> Exception:", it.getEmail()), e);
                 }
+
             });
         } catch (Exception e) {
             log.log(Level.WARNING, "cloud-shell-task >> collectProfile >> Exception:", e);

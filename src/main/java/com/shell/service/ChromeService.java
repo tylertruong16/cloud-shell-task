@@ -38,7 +38,8 @@ public class ChromeService {
     public String formatDockerCmd(String command, String email) {
         var isDockerCmd = StringUtils.contains(command, "docker run");
         if (isDockerCmd) {
-            return MessageFormat.format(command, email);
+            var emailParam = MessageFormat.format("-e EMAIL=''{0}''", email);
+            return MessageFormat.format(command, emailParam);
         }
         return command;
     }
@@ -203,7 +204,7 @@ public class ChromeService {
 
     public ChromeOptions createProfile(String folderName, ChromeOptions options) {
         try {
-            var profilePath = Paths.get(System.getProperty("user.home"), "chrome-profiles", folderName).toString();
+            var profilePath = Paths.get(System.getProperty("user.home"), "chrome-profiles-download-extract", folderName).toString();
             options.addArguments(MessageFormat.format("user-data-dir={0}", profilePath));
             options.addArguments("--disable-web-security");
             // this option so important to bypass google detection
