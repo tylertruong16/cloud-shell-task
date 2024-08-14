@@ -26,6 +26,12 @@ public class SyncProfileJob {
     @Value("${github.token}")
     private String githubToken;
 
+    @Value("${profile-folder.user-profile-download}")
+    private String chromeProfileDownloadFolder;
+
+    @Value("${profile-folder.user-profile}")
+    private String userProfileExtractFolder;
+
     final ProfileManagerRepo profileManagerRepo;
 
     public SyncProfileJob(ProfileManagerRepo profileManagerRepo) {
@@ -37,7 +43,7 @@ public class SyncProfileJob {
     void collectProfile() {
         try {
             var config = new GitHubConfig(this.githubApiUrl, this.githubToken.trim());
-            var profilePath = Paths.get(System.getProperty("user.home"), "chrome-profiles-download").toString();
+            var profilePath = Paths.get(System.getProperty("user.home"), chromeProfileDownloadFolder).toString();
             var folder = new File(profilePath);
             if (!folder.exists()) {
                 var created = folder.mkdirs();
@@ -48,13 +54,14 @@ public class SyncProfileJob {
                     .toList();
             validAccounts.forEach(it -> {
                 try {
-                    var userFolderName = Paths.get(System.getProperty("user.home"), "chrome-profiles-download", it.getEmail()).toString();
-                    var userFolder = new File(userFolderName);
+                    var userFolderDownLoadName = Paths.get(System.getProperty("user.home"), chromeProfileDownloadFolder, it.getEmail()).toString();
+                    var userFolderProfile = Paths.get(System.getProperty("user.home"), userProfileExtractFolder, it.getEmail()).toString();
+                    var userFolder = new File(userFolderProfile);
                     if (!userFolder.exists() || Optional.ofNullable(userFolder.listFiles()).filter(e -> e.length == 0).isPresent()) {
                         // download folder when it does not exist
-                        GitHubService.downloadFile(userFolderName, it.getEmail(), config);
-                        var zipFileName = userFolderName + File.separator + MessageFormat.format("{0}.zip", it.getEmail());
-                        FileSplitter.mergeFiles(userFolderName, zipFileName);
+                        GitHubService.downloadFile(userFolderDownLoadName, it.getEmail(), config);
+                        var zipFileName = userFolderDownLoadName + File.separator + MessageFormat.format("{0}.zip", it.getEmail());
+                        FileSplitter.mergeFiles(userFolderDownLoadName, zipFileName);
                         var fileZip = new File(zipFileName);
                         if (fileZip.exists()) {
                             var extractFolder = Paths.get(System.getProperty("user.home"), "chrome-profiles-download-extract").toString();

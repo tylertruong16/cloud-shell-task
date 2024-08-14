@@ -15,3 +15,7 @@ system:
 github:
   api-url: "${GITHUB_API_URL:https://api.github.com/repos/{{owner}}/{{repo_name}}/contents}"
   token: "${GITHUB_TOKEN: your github token}"
+
+profile-folder:
+  user-profile: "${CLOUD_SHELL_CHROME_PROFILE_FOLDER:chrome-profiles-download-extract}"
+  user-profile-download: "${CLOUD_SHELL_CHROME_PROFILE_DOWNLOAD_FOLDER:chrome-profiles-download}"

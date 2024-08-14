@@ -127,6 +127,20 @@ public class FileSplitter {
         }
     }
 
+    public static boolean deleteFolder(File folder) {
+        if (folder.isDirectory()) {
+            var files = folder.listFiles();
+            if (files != null) {
+                for (var file : files) {
+                    // Recursive call to delete files and subfolders
+                    deleteFolder(file);
+                }
+            }
+        }
+        // Delete the file or empty folder
+        return folder.delete();
+    }
+
 
 
     @Data

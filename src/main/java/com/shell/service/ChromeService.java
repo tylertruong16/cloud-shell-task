@@ -1,5 +1,6 @@
 package com.shell.service;
 
+import com.shell.model.ShellStatusResponse;
 import lombok.extern.java.Log;
 import org.apache.commons.lang3.StringUtils;
 import org.openqa.selenium.By;
@@ -34,6 +35,9 @@ public class ChromeService {
     @Value("${system.headless-mode}")
     private String headlessMode;
 
+    @Value("${profile-folder.user-profile}")
+    private String userProfileExtractFolder;
+
 
     public String formatDockerCmd(String command, String email) {
         var isDockerCmd = StringUtils.contains(command, "docker run");
@@ -45,7 +49,8 @@ public class ChromeService {
     }
 
 
-    public void connectGoogle(String email) {
+    public ShellStatusResponse connectGoogle(String email) {
+        var result = new ShellStatusResponse(email, ShellStatusResponse.Status.NEW);
         var options = createProfile(email, new ChromeOptions());
         var driver = new ChromeDriver(options);
         var formatCommand = formatDockerCmd(cmd, email);
@@ -60,8 +65,11 @@ public class ChromeService {
                 var wait = new WebDriverWait(driver, Duration.ofSeconds(30));
                 var cloudShellIcon = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//button[@aria-label='Activate Cloud Shell']")));
                 cloudShellIcon.click();
+                Thread.sleep(Duration.ofSeconds(10));
                 var iframe = driver.findElement(By.className(SHELL_FRAME_NAME));
                 wait.until(ExpectedConditions.visibilityOfElementLocated(By.className(SHELL_FRAME_NAME)));
+                // wait 5 sec to open cloud shell cmd
+
                 // Switch to the Cloud Shell iframe
                 driver.switchTo().frame(iframe);
 
@@ -72,13 +80,18 @@ public class ChromeService {
                     inputCommandToShell(driver, cmdValue);
                     // Send a command to the Cloud Shell
                     handleAuthorizeShell(driver);
-
+                    Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+                    result.setStatus(ShellStatusResponse.Status.SUCCESSFULLY);
                 }
-                Thread.sleep(TimeUnit.SECONDS.toMillis(10));
 
+            } else {
+                result.setStatus(ShellStatusResponse.Status.CANNOT_CONNECT_GOOGLE);
             }
+            return result;
         } catch (Exception e) {
             log.log(Level.WARNING, "cloud-shell-task >> ChromeService >> connectGoogle >> Exception:", e);
+            result.setStatus(ShellStatusResponse.Status.FAILED);
+            return result;
         } finally {
             driver.close();
         }
@@ -183,28 +196,34 @@ public class ChromeService {
 
 
     private boolean loginSuccess(ChromeDriver driver) {
-        var wait = new FluentWait<WebDriver>(driver)
-                .withTimeout(Duration.ofMinutes(5))
-                .pollingEvery(Duration.ofSeconds(5))
-                .ignoring(NoSuchElementException.class);
+        try {
+            var wait = new FluentWait<WebDriver>(driver)
+                    .withTimeout(Duration.ofMinutes(2))
+                    .pollingEvery(Duration.ofSeconds(5))
+                    .ignoring(NoSuchElementException.class);
 
-        // Define the condition to check for the profile icon
-        var checkLogin = new Function<WebDriver, Boolean>() {
-            public Boolean apply(WebDriver driver) {
-                try {
-                    driver.findElement(By.xpath("//a[contains(@href, 'accounts.google.com/SignOutOptions')]"));
-                    return true; // Profile icon found, already signed in
-                } catch (NoSuchElementException e) {
-                    return false; // Profile icon not found, not signed in
+            // Define the condition to check for the profile icon
+            var checkLogin = new Function<WebDriver, Boolean>() {
+                public Boolean apply(WebDriver driver) {
+                    try {
+                        driver.findElement(By.xpath("//a[contains(@href, 'accounts.google.com/SignOutOptions')]"));
+                        return true; // Profile icon found, already signed in
+                    } catch (NoSuchElementException e) {
+                        return false; // Profile icon not found, not signed in
+                    }
                 }
-            }
-        };
-        return wait.until(checkLogin);
+            };
+            return wait.until(checkLogin);
+        } catch (Exception e) {
+            log.log(Level.WARNING, "cloud-shell-task >> check login google >> Exception: ", e);
+            return false;
+        }
+
     }
 
     public ChromeOptions createProfile(String folderName, ChromeOptions options) {
         try {
-            var profilePath = Paths.get(System.getProperty("user.home"), "chrome-profiles-download-extract", folderName).toString();
+            var profilePath = Paths.get(System.getProperty("user.home"), userProfileExtractFolder, folderName).toString();
             options.addArguments(MessageFormat.format("user-data-dir={0}", profilePath));
             options.addArguments("--disable-web-security");
             // this option so important to bypass google detection
