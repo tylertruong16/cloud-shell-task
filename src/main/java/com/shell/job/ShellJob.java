@@ -6,12 +6,15 @@ import com.shell.model.ProfileItem;
 import com.shell.service.ChromeService;
 import com.shell.service.ProfileManagerRepo;
 import lombok.extern.java.Log;
+import org.apache.commons.lang3.SerializationUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -60,6 +63,23 @@ public class ShellJob {
             }
         });
 
+    }
+
+    @Scheduled(fixedDelay = 3, initialDelay = 3, timeUnit = TimeUnit.MINUTES)
+    void checkAliveAccount() {
+        try {
+            var profile = profileManagerRepo.getAllProfile().stream().filter(ProfileItem::accountAlreadyStop).toList();
+            profile.forEach(it -> {
+                log.log(Level.INFO, "cloud-shell-task >> checkAliveAccount >> invalid account: {0}", JsonConverter.convertObjectToJson(it));
+                var clone = SerializationUtils.clone(it);
+                var updateAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
+                clone.setStatus("OFFLINE");
+                clone.setUpdateDate(updateAt);
+                profileManagerRepo.saveProfileItem(clone);
+            });
+        } catch (Exception e) {
+            log.log(Level.WARNING, "cloud-shell-task >> checkAliveAccount >> Exception:", e);
+        }
     }
 
 }
