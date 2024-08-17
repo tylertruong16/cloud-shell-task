@@ -19,3 +19,10 @@ github:
 profile-folder:
   user-profile: "${CLOUD_SHELL_CHROME_PROFILE_FOLDER:chrome-profiles-download-extract}"
   user-profile-download: "${CLOUD_SHELL_CHROME_PROFILE_DOWNLOAD_FOLDER:chrome-profiles-download}"
+
+logging:
+  file:
+    name: log/cloud-shell-task.log
+  logback:
+    rollingpolicy:
+      max-history: 2
