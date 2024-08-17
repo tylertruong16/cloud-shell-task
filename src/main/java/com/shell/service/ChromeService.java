@@ -93,7 +93,7 @@ public class ChromeService {
             result.setStatus(ShellStatusResponse.Status.FAILED);
             return result;
         } finally {
-            driver.close();
+            driver.quit();
         }
     }
 
