@@ -29,7 +29,7 @@ public class ProfileItem implements Serializable {
     public static ProfileItem createOfflineProfile(String email, String username) {
         var updateAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
         var id = new String(Base64.getEncoder().encode(email.getBytes(StandardCharsets.UTF_8)));
-        return new ProfileItem(id, email, "OFFLINE", updateAt, "", username);
+        return new ProfileItem(id, email, ProfileStatus.OFFLINE.name(), updateAt, "", username);
     }
 
     public ProfileItem updateLastUpdateTime() {
@@ -45,12 +45,12 @@ public class ProfileItem implements Serializable {
 
 
     public boolean accountCanRunShell() {
-        var offlineStatus = StringUtils.equals(status, "OFFLINE");
+        var offlineStatus = StringUtils.equals(status, ProfileStatus.OFFLINE.name());
         return offlineStatus && isValidAndFuture(updateDate, 10);
     }
 
     public boolean accountAlreadyStop() {
-        var onlineStatus = StringUtils.endsWithIgnoreCase(status, "ONLINE");
+        var onlineStatus = StringUtils.endsWithIgnoreCase(status, ProfileStatus.ONLINE.name());
         return onlineStatus && isValidAndFuture(updateDate, 4);
     }
 

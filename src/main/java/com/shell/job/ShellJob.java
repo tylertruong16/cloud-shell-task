@@ -3,6 +3,7 @@ package com.shell.job;
 import com.shell.common.FileSplitter;
 import com.shell.common.JsonConverter;
 import com.shell.model.ProfileItem;
+import com.shell.model.ProfileStatus;
 import com.shell.service.ChromeService;
 import com.shell.service.ProfileManagerRepo;
 import lombok.extern.java.Log;
@@ -73,7 +74,7 @@ public class ShellJob {
                 log.log(Level.INFO, "cloud-shell-task >> checkAliveAccount >> invalid account: {0}", JsonConverter.convertObjectToJson(it));
                 var clone = SerializationUtils.clone(it);
                 var updateAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
-                clone.setStatus("OFFLINE");
+                clone.setStatus(ProfileStatus.OFFLINE.name());
                 clone.setUpdateDate(updateAt);
                 profileManagerRepo.saveProfileItem(clone);
             });
