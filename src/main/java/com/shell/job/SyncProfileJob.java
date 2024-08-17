@@ -64,7 +64,7 @@ public class SyncProfileJob {
                         FileSplitter.mergeFiles(userFolderDownLoadName, zipFileName);
                         var fileZip = new File(zipFileName);
                         if (fileZip.exists()) {
-                            var extractFolder = Paths.get(System.getProperty("user.home"), "chrome-profiles-download-extract").toString();
+                            var extractFolder = Paths.get(System.getProperty("user.home"), userProfileExtractFolder).toString();
                             FileSplitter.unzip(zipFileName, extractFolder);
                         }
                     }
