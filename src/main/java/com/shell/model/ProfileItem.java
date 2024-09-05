@@ -46,7 +46,7 @@ public class ProfileItem implements Serializable {
 
     public boolean accountCanRunShell() {
         var offlineStatus = StringUtils.equals(status, ProfileStatus.OFFLINE.name());
-        return offlineStatus && isValidAndFuture(updateDate, 10);
+        return offlineStatus && isValidAndFuture(updateDate, 10) && StringUtils.isNoneBlank(profileFolderUrl);
     }
 
     public boolean accountAlreadyStop() {
