@@ -8,7 +8,7 @@ server:
 
 system:
   id: "${REALM:browser-task}"
-  profile-table-url: "${PROFILE_TABLE_URL:link connect to profile_manager table}"
+  database-json-url: "${DATABASE_JSON_URL:***onpet.vn/public/api/dynamic/table}"
   cmd: "${CMD:whoami}"
   headless-mode: "${HEADLESS_MODE:false}"
 
