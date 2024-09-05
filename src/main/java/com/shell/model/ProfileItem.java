@@ -3,6 +3,7 @@ package com.shell.model;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.apache.commons.collections4.bloomfilter.CellExtractor;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -46,21 +47,23 @@ public class ProfileItem implements Serializable {
 
     public boolean accountCanRunShell() {
         var offlineStatus = StringUtils.equals(status, ProfileStatus.OFFLINE.name());
-        return offlineStatus && isValidAndFuture(updateDate, 10) && StringUtils.isNoneBlank(profileFolderUrl);
+        CellExtractor.CellPredicate cellPredicate = (int a, int b) -> a < b;
+        return offlineStatus && isValidAndFuture(updateDate, 10, cellPredicate) && StringUtils.isNoneBlank(profileFolderUrl);
     }
 
     public boolean accountAlreadyStop() {
         var onlineStatus = StringUtils.endsWithIgnoreCase(status, ProfileStatus.ONLINE.name());
-        return onlineStatus && isValidAndFuture(updateDate, 4);
+        CellExtractor.CellPredicate cellPredicate = (int a, int b) -> a >= b;
+        return onlineStatus && isValidAndFuture(updateDate, 4, cellPredicate);
     }
 
-    public static boolean isValidAndFuture(String dateStr, int minute) {
+    public static boolean isValidAndFuture(String dateStr, int minute, CellExtractor.CellPredicate cellPredicate) {
         try {
             var formatter = DateTimeFormatter.ISO_ZONED_DATE_TIME;
             var dateTime = ZonedDateTime.parse(dateStr, formatter);
             var now = ZonedDateTime.now();
             var duration = Duration.between(dateTime, now);
-            return duration.toMinutes() >= minute;
+            return cellPredicate.test(Math.toIntExact(duration.toMinutes()), minute);
         } catch (DateTimeParseException e) {
             return false;
         }
