@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- **Java**: 22
+- **Java**: 23
 - **Server**: Must have Chrome installed
 
 ## Environment Variables
